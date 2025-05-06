@@ -24,3 +24,87 @@ This project develops a robust system to combat identity theft in OSNs. It integ
 - **Connectivity**: PDBC
 
 ## file and folder structure 
+Flask app: static/, templates/, datasets/, models/, app.py, config.py, SQLite DB
+
+# Project Structure
+📦 project_root  
+├── 📂 static                 # Frontend assets (CSS, JS, images)  
+├── 📂 templates             # HTML templates  
+│   ├── home.html            # Homepage  
+│   ├── admin_login.html     # Admin login  
+│   └── user_login.html      # User login  
+├── 📂 datasets              # OSN datasets  
+├── 📂 models                # Trained ML models  
+├── 📄 app.py                # Main Flask app  
+├── 📄 config.py             # Configuration  
+├── 📄 database.db           # SQLite database  
+└── 📄 README.md             # Project docs  
+
+-**static/**: Stores frontend assets like CSS for styling and JavaScript for interactivity.
+
+-**templates/**: Contains HTML files for rendering web pages (e.g., admin and user interfaces).
+
+-**datasets/**: Stores input datasets for training and testing.
+
+-**models/**: Saves trained machine learning models in pickle format.
+
+-**app.py**: Core application script handling routing, logic, and ML integration.
+
+-**database.db**: SQLite database for storing user data and metrics.
+
+## Setup
+To set up and run the project locally, follow these steps:
+
+1. **Install Python**:
+   - Download Python 3.7.0 from [python.org](https://www.python.org/).
+   - Verify: 
+     ```bash
+     python --version
+
+2. **Set Up Virtual Environment**:
+
+    -Create and activate a virtual environment:
+    python -m venv venv
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
+
+3. **Install dependencies**:
+
+-Create a requirements.txt with:
+
+flask
+
+scikit-learn
+
+pandas
+
+numpy
+
+matplotlib
+
+sqlite3
+
+-Install:
+pip install -r requirements.txt
+
+4. **configure the project**:
+
+Place project files in a directory (e.g., project_root/).
+
+Ensure database.db is initialized by running the app.
+
+5.**Run the Application**:
+
+-Navigate to the project directory:
+cd project_root
+
+-Run the Flask app:
+python app.py
+
+-Access at http://localhost:5000
+
+## Contribute 
+
+If you would like to contribute, please submit a pull request. Any contributions and feedback are welcomed.
