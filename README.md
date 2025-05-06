@@ -23,3 +23,4 @@ This project develops a robust system to combat identity theft in OSNs. It integ
 - **OS**: Windows 11
 - **Connectivity**: PDBC
 
+## file and folder structure 
