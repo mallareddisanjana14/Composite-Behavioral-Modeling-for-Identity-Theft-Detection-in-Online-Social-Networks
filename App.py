@@ -1,0 +1,284 @@
+
+from flask import Flask, render_template,request,session
+import os
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder,StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+import joblib
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('agg')
+import sqlite3
+
+from collections import Counter
+
+
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/adminlogin')
+def AdminLogin():
+    return render_template('AdminApp/AdminLogin.html')
+
+@app.route('/AdminAction', methods=['POST'])
+def AdminAction():
+    if request.method == 'POST':
+        username=request.form['username']
+        password=request.form['password']
+
+        if username=='Admin' and password=='Admin':
+            return render_template("AdminApp/AdminHome.html")
+        else:
+            context={'msg':'Login Failed..!!'}
+            return render_template("AdminApp/AdminLogin.html",**context)
+
+@app.route('/AdminHome')
+def AdminHome():
+    return render_template("AdminApp/AdminHome.html")
+
+@app.route('/Upload')
+def Upload():
+    return render_template("AdminApp/Upload.html")
+
+
+
+UPLOAD_FOLDER = './uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+global df,filepath
+@app.route('/UploadAction', methods=['POST'])
+def UploadAction():
+    global df,filepath
+    if 'dataset' not in request.files:
+        return "No file part"
+    file = request.files['dataset']
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(filepath)
+    df = pd.read_excel(filepath)
+    columns = df.columns.tolist()
+    rows = df.head().values.tolist()
+    return render_template('AdminApp/ViewDataset.html', columns=columns, rows=rows)
+
+global df, X_train, X_test, y_train, y_test
+@app.route('/preprocess')
+def preprocess():
+    global df, X_train, X_test, y_train, y_test
+
+    df = pd.read_excel("Dataset/Theft_Detection.xls")
+
+    df.drop(columns=['Account_Id', 'Trans_Id'], inplace=True)
+    df.dropna(inplace=True)
+
+    df['NAME_CONTRACT_TYPE'] = df['NAME_CONTRACT_TYPE'].map(
+        {'Shopping': 0, 'Booking hotels': 1, 'Purchasing tickets': 2})
+    df['GENDER'] = df['GENDER'].map({'M': 0, 'F': 1})
+    df['NAME_INCOME_TYPE'] = df['NAME_INCOME_TYPE'].map(
+        {'Working': 0, 'State servant': 1, 'Commercial associate': 2, 'Pensioner': 3,
+         'Unemployed': 4})
+    df['NAME_FAMILY_STATUS'] = df['NAME_FAMILY_STATUS'].map(
+        {'Single / not married': 0, 'Married': 1, 'Civil marriage': 2, 'Widow': 3,
+         'Separated': 4})
+    df['Label'] = df['Label'].map({'Theft': 0, 'No Theft': 1})
+
+    X = df.iloc[:, 0:10]
+    y = df.iloc[:, 10:11]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    return render_template('AdminApp/SplitStatus.html', total=len(X), train=len(X_train),test=len(X_test))
+
+
+global svm_acc,smodel
+@app.route('/SVM')
+def SVM():
+    global svm_acc,smodel,X_train, X_test, y_train, y_test
+
+    smodel=SVC()
+    smodel.fit(X_train,y_train)
+    joblib.dump(smodel, "Models/SVMModel.joblib")
+    pred = smodel.predict(X_test)
+    svmacc=accuracy_score(y_test, pred)
+    pred = svmacc*100
+    svm_acc=float("{:.2f}".format(pred))
+    return render_template('AdminApp/AlgorithmStatus.html', msg="SVM Model Generated Successfully..!!", Accuracy=str(svm_acc))
+
+
+global rf_acc,rmodel
+@app.route('/RandomForest')
+def RandomForest():
+    global rf_acc,rmodel,X_train, X_test, y_train, y_test
+
+    rmodel=RandomForestClassifier()
+    rmodel.fit(X_train,y_train)
+    joblib.dump(rmodel, "Models/RFModel.joblib")
+    pred = rmodel.predict(X_test)
+    rfacc=accuracy_score(y_test, pred)
+    pred = rfacc*100
+    rf_acc=float("{:.2f}".format(pred))
+    return render_template('AdminApp/AlgorithmStatus.html', msg="Random Forest Model Generated Successfully..!!", Accuracy=str(rf_acc))
+
+global dec_acc,decmodel
+@app.route('/Decision')
+def Decision():
+    global dec_acc,decmodel,X_train, X_test, y_train, y_test
+
+    decmodel=DecisionTreeClassifier()
+    decmodel.fit(X_train,y_train)
+    joblib.dump(decmodel, "Models/DecModel.joblib")
+    pred = decmodel.predict(X_test)
+    decacc=accuracy_score(y_test, pred)
+    pred = decacc*100
+    dec_acc=float("{:.2f}".format(pred))
+    return render_template('AdminApp/AlgorithmStatus.html', msg="Decision Tree Model Generated Successfully..!!", Accuracy=str(dec_acc))
+
+
+@app.route('/comparison')
+def comparison():
+    models = ['SVM', 'Random Forest', 'Decision Tree']
+    accuracies = [svm_acc, rf_acc, dec_acc]
+
+    plt.figure(figsize=(8, 5))
+    plt.bar(models, accuracies, color=['blue', 'green', 'orange'])
+    plt.title('Model Accuracy Comparison', fontsize=16)
+    plt.xlabel('Models', fontsize=12)
+    plt.ylabel('Accuracy (%)', fontsize=12)
+    plt.ylim(0, 100)  # Adjust y-axis to match the accuracy range
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.savefig('Static/model_accuracy.png')
+    plt.close()
+    return render_template('AdminApp/Grpah.html')
+
+@app.route('/userlogin')
+def userlogin():
+    return render_template('UserApp/Login.html')
+
+@app.route('/register')
+def register():
+    return render_template('UserApp/Register.html')
+@app.route('/RegAction', methods=['POST'])
+def RegAction():
+    if request.method == 'POST':
+        name=request.form['name']
+        email=request.form['email']
+        mobile=request.form['mobile']
+        username=request.form['username']
+        password=request.form['password']
+
+        con=sqlite3.connect('database.db')
+        cur=con.cursor()
+        #cur.execute("create table user(name varchar(100),email varchar(200),mobile varchar(200),username varchar(100),password varchar(100))")
+        cur.execute("select * from user where username='"+username+"'and password='"+password+"'")
+        data=cur.fetchone()
+        if data is None:
+            cur=con.cursor()
+            cur.execute("insert into user values('"+name+"','"+email+"','"+mobile+"','"+username+"','"+password+"')")
+            con.commit()
+            return render_template('UserApp/Register.html', msg="Successfully Registered..!!")
+        else:
+            return render_template('UserApp/Register.html', msg="username and password is already exist..!!")
+
+app.secret_key = '123'
+@app.route('/UserAction', methods=['POST'])
+def UserAction():
+    username=request.form['username']
+    password=request.form['password']
+
+    con=sqlite3.connect('database.db')
+    cur=con.cursor()
+    cur.execute("select * from user where username='"+username+"'and password='"+password+"'")
+    data=cur.fetchone()
+    if data is None:
+        return render_template('UserApp/Login.html', msg="Login Failed..!!")
+    else:
+        session['username'] =data[3]
+        return render_template('UserApp/Home.html',username=session['username'])
+@app.route('/UserHome')
+def UserHome():
+    return render_template('UserApp/Home.html', username=session['username'])
+
+
+@app.route('/Behaviourgraph')
+def Behaviourgraph():
+    df=pd.read_excel("Dataset/Theft_Detection.xls")
+    # Count occurrences of each category
+    category_counts = Counter(df['NAME_CONTRACT_TYPE'])
+
+
+    # Plot
+    plt.figure(figsize=(8, 6))
+    plt.bar(category_counts.keys(), category_counts.values(), color=['blue', 'green', 'red'])
+    plt.xlabel("Contract Type")
+    plt.ylabel("Count")
+    plt.title("Classification of NAME_CONTRACT_TYPE")
+    plt.xticks(rotation=20)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.savefig('Static/Behaviour_accuracy.png')
+    plt.close()
+    return render_template('UserApp/Grpah.html')
+
+@app.route('/Detect')
+def Detect():
+    path = "Dataset/Theft_Detection.xls"
+    df2 = pd.read_excel(path)
+    df2.dropna(inplace=True)
+
+    a = 0
+    ind_sec = ""
+    for d in df2['NAME_CONTRACT_TYPE'].unique():
+        ind_sec += "<option value=" + str(a) + ">" + d + "</option>"
+        a += 1
+    ind_sec += ""
+
+    b = 0
+    crl = ""
+    for s in df2['NAME_INCOME_TYPE'].unique():
+        crl += "<option value=" + str(b) + ">" + s + "</option>"
+        b += 1
+    crl += ""
+
+    c = 0
+    fac = ""
+    for g in df2['NAME_FAMILY_STATUS'].unique():
+        fac += "<option value=" + str(c) + ">" + g + "</option>"
+        c += 1
+    fac += ""
+    return render_template('UserApp/Detect.html',ind_sec=ind_sec,crl=crl,fac=fac)
+
+@app.route('/DetectAction', methods=['POST'])
+def DetectAction():
+    age=request.form['age']
+    f=request.form['f']
+    nct=request.form['nct'] #text
+    gender=request.form['gender']
+    amt_total=request.form['amt_total']
+    amt_credit=request.form['amt_credit']
+    amt_ann=request.form['amt_ann']
+    amt_goods=request.form['amt_goods'] #text
+    income_type=request.form['income_type']#text
+    family_stutus=request.form['family_stutus']#text
+
+
+
+   # Load the model
+    model_path = "Models/DecModel.joblib"
+    rf_model = joblib.load(model_path)
+
+    pred= rf_model.predict([[age,f,nct,gender,amt_total,amt_credit,amt_ann,amt_goods,income_type,family_stutus]])
+    print(pred)
+
+    return render_template('UserApp/Result.html', result=pred[0])
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
